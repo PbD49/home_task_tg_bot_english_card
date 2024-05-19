@@ -1,6 +1,8 @@
 import configparser
 import random
+from typing import List, Tuple
 
+from telebot import types
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup
 from class_db import DataBase, username, password
@@ -28,7 +30,7 @@ class StartBot:
     start_handler(message)
     send_message_with_buttons(self, message, text)
     """
-    def __init__(self, token):
+    def __init__(self, token: str):
         """
         Инициализация бота.
 
@@ -37,7 +39,7 @@ class StartBot:
         self.bot = telebot.TeleBot(token)
 
         @self.bot.message_handler(commands=['start'])
-        def start_handler(message):
+        def start_handler(message: types.Message):
             """
             Обработчик команды '/start'.
 
@@ -52,7 +54,7 @@ class StartBot:
 Готов начать? 😉📚''')
             self.send_message_with_buttons(message, text)
 
-    def send_message_with_buttons(self, message, text):
+    def send_message_with_buttons(self, message: types.Message, text: str):
         """
         Отправка сообщения с пользовательской клавиатурой, содержащей различные варианты.
 
@@ -72,7 +74,7 @@ class StartGame(StartBot):
     Класс StartGame для обработки начала игры перевода слов.
 
     """
-    def __init__(self, token):
+    def __init__(self, token: str):
         """
         Инициализация класса StartGame токеном.
 
@@ -81,7 +83,7 @@ class StartGame(StartBot):
         super().__init__(token)
 
         @self.bot.message_handler(func=lambda message: message.text == 'Начать тренировку 🎮')
-        def start_game(message):
+        def start_game(message: types.Message):
             """
             Обработчик начала тренировки.
 
@@ -93,7 +95,7 @@ class StartGame(StartBot):
             used_questions = db.fetch_all('''SELECT DISTINCT question_id FROM used_questions''')
             if len(used_questions) >= 10:
                 common_words(message, user_id)
-            query = db.fetch_one(
+            query: Tuple[int, str] = db.fetch_one(
                 '''SELECT question_id,  question_text 
                           FROM questions 
                           WHERE user_id = %s OR user_id IS NULL
@@ -103,12 +105,13 @@ class StartGame(StartBot):
                 question_text = query[1]
                 question_id = query[0]
                 while question_id in [q[0] for q in used_questions]:
-                    query = db.fetch_one(
+                    query: Tuple[int, str] = db.fetch_one(
                         '''SELECT question_id, question_text 
                                   FROM questions 
                                   WHERE user_id = %s OR user_id IS NULL
                                   ORDER BY RANDOM()''',
-                        (user_id,))
+                        (user_id,)
+                    )
                     if query:
                         question_text = query[1]
                         question_id = query[0]
@@ -121,7 +124,7 @@ class StartGame(StartBot):
 
                 all_answers(user_id, question_text, question_id)
 
-        def all_answers(user_id, question_text, question_id):
+        def all_answers(user_id: int, question_text: str, question_id: int):
             """
             Обработчик отправки всех вариантов ответа.
 
@@ -131,7 +134,7 @@ class StartGame(StartBot):
             :param question_text: Текст вопроса.
             :param question_id: идентификатор вопроса.
             """
-            answers = db.fetch_all(
+            answers: List[Tuple[str]] = db.fetch_all(
                 '''SELECT answer_text
                           FROM answers 
                           WHERE question_id = %s''',
@@ -141,7 +144,7 @@ class StartGame(StartBot):
             random.shuffle(answers)
             send_results_with_buttons(user_id, answers, question_text, question_id)
 
-        def send_results_with_buttons(user_id, answers, question_text, question_id):
+        def send_results_with_buttons(user_id: int, answers: List[Tuple[str]], question_text: str, question_id: int):
             """
             Обработчик отправки результатов с кнопками.
 
@@ -162,7 +165,7 @@ class StartGame(StartBot):
             self.bot.send_message(user_id, reply, reply_markup=markup, parse_mode='HTML')
 
         @self.bot.callback_query_handler(func=lambda call: call.data.startswith('answer'))
-        def check_answer(call):
+        def check_answer(call: types.CallbackQuery):
             """
             Обработчик проверки ответа.
 
@@ -170,10 +173,10 @@ class StartGame(StartBot):
 
             :param call: Вызов обратного вызова.
             """
-            user_id = call.message.chat.id
-            chosen_answer = call.data.split('_')[1]
-            question_id = call.data.split('_')[2]
-            correct_answer = db.fetch_one(
+            user_id: int = call.message.chat.id
+            chosen_answer: str = call.data.split('_')[1]
+            question_id: int = int(call.data.split('_')[2])
+            correct_answer: Tuple[str] = db.fetch_one(
                 '''SELECT answer_text 
                           FROM answers 
                           WHERE question_id = %s 
@@ -190,7 +193,7 @@ class StartGame(StartBot):
                 self.bot.send_message(call.message.chat.id, text='<b>Ответ неправильный. Попробуйте еще раз.</b>',
                                       parse_mode='HTML')
 
-        def common_words(message, user_id):
+        def common_words(message: telebot.types.Message, user_id: int):
             """
             Обработчик сброса списка использованных вопросов.
 
@@ -225,7 +228,7 @@ class ListWords(StartBot):
     list_words(message)
     Функция для обработки списка слов для пользователя.
     """
-    def __init__(self, token):
+    def __init__(self, token: str):
         """
         Инициализирует объект ListWords предоставленным токеном.
 
@@ -235,7 +238,7 @@ class ListWords(StartBot):
         super().__init__(token)
 
         @self.bot.message_handler(func=lambda message: message.text == 'Посмотреть список изучаемых слов 💼')
-        def list_words(message):
+        def list_words(message: types.Message):
             """
             Функция для обработки списка слов на основе ввода пользователя.
 
@@ -244,7 +247,7 @@ class ListWords(StartBot):
             Объект сообщения, который вызвал вызов функции.
             """
             chat_id = message.chat.id
-            query = db.fetch_all('''SELECT DISTINCT q.question_text 
+            query: List[Tuple[str]] = db.fetch_all('''SELECT DISTINCT q.question_text 
                                            FROM questions q 
                                            WHERE user_id = %s OR user_id IS NULL;''',
                                  (chat_id,))
@@ -281,7 +284,7 @@ class AddWord(StartBot):
     add_wrong_answer(message, add_word, translated_text_eng)
     Добавляет неправильные ответы для нового слова.
     """
-    def __init__(self, token):
+    def __init__(self, token: str):
         """
         Инициализирует объект AddWord предоставленным токеном.
 
@@ -291,7 +294,7 @@ class AddWord(StartBot):
         super().__init__(token)
 
         @self.bot.message_handler(func=lambda message: message.text == 'Добавить новое слово ➕')
-        def send_message_for_add_word(message):
+        def list_words(message: types.Message):
             """
             Отправляет сообщение для добавления нового слова.
 
@@ -303,7 +306,7 @@ class AddWord(StartBot):
             self.bot.send_message(message.from_user.id, reply)
             self.bot.register_next_step_handler(message, self.add_word)
 
-    def add_word(self, message):
+    def add_word(self, message: types.Message):
         """
         Добавляет новое слово в базу данных.
 
@@ -314,7 +317,7 @@ class AddWord(StartBot):
         chat_id = message.from_user.id
         add_word = message.text
         translated_text_eng = translate_text_rus_to_eng(add_word)
-        question_exists = db.fetch_one(
+        question_exists: Tuple[str] = db.fetch_one(
             '''SELECT question_text
                       FROM questions 
                       WHERE question_text = %s 
@@ -329,7 +332,7 @@ class AddWord(StartBot):
             reply = '<b>Такое слово уже есть в базе данных. Попробуйте добавить другое слово.</b>'
             self.bot.send_message(message.from_user.id, reply, parse_mode='HTML')
 
-    def add_wrong_answer(self, message, add_word, translated_text_eng):
+    def add_wrong_answer(self, message: telebot.types.Message, add_word: str, translated_text_eng: str):
         """
         Добавляет неправильные ответы для нового слова.
 
@@ -342,13 +345,13 @@ class AddWord(StartBot):
         Переведенный текст нового слова на английский язык.
         """
         chat_id = message.from_user.id
-        question_id = db.fetch_one('''SELECT question_id 
+        question_id: int = db.fetch_one('''SELECT question_id 
                                              FROM questions 
                                              WHERE question_text = %s 
                                              AND (user_id = %s OR user_id IS NULL);''',
                                    (add_word, chat_id))[0]
 
-        bad_words = db.fetch_all('''SELECT words_text FROM words ORDER BY RANDOM() LIMIT 3''')
+        bad_words: List[Tuple[str]] = db.fetch_all('''SELECT words_text FROM words ORDER BY RANDOM() LIMIT 3''')
 
         bad_words.append(translated_text_eng)
 
@@ -370,7 +373,7 @@ class DeleteWord(StartBot):
     """
     Класс DeleteWord для обработки удаления слов из базы данных.
     """
-    def __init__(self, token):
+    def __init__(self, token: str):
         """
         Конструктор для класса DeleteWord.
 
@@ -380,7 +383,7 @@ class DeleteWord(StartBot):
         super().__init__(token)
 
         @self.bot.message_handler(func=lambda message: message.text == 'Удалить слово ❌')
-        def delete_word(message):
+        def delete_word(message: types.Message):
             """
             Функция-обработчик для удаления слова на основе ввода пользователя.
 
@@ -388,7 +391,7 @@ class DeleteWord(StartBot):
             message (Telegram message): Входное сообщение от пользователя.
             """
             user_id = message.from_user.id
-            query = db.fetch_all('''SELECT DISTINCT q.question_text 
+            query: List[Tuple[str]] = db.fetch_all('''SELECT DISTINCT q.question_text 
                                            FROM questions q
                                            WHERE user_id = %s;''', (user_id,))
             if query:
@@ -404,15 +407,15 @@ class DeleteWord(StartBot):
                 self.bot.send_message(message.from_user.id, reply, parse_mode='HTML')
 
         @self.bot.callback_query_handler(func=lambda call: call.data.startswith('delete'))
-        def delete_word(call):
+        def delete_word(call: telebot.types.CallbackQuery):
             """
             Функция обратного вызова для удаления выбранного слова.
 
             Параметры:
             call (Telegram callback): Данные обратного вызова для выбранного слова.
             """
-            user_id = call.from_user.id
-            word_id = call.data.split('_')[1]
+            user_id: int = call.from_user.id
+            word_id: str = call.data.split('_')[1]
             db.execute_query('''DELETE
                                 FROM
                                 answers
@@ -446,7 +449,7 @@ class BotRunner(ListWords, DeleteWord, AddWord, StartGame, StartBot):
     * начало игры
     * запуск бота
     """
-    def __init__(self, token):
+    def __init__(self, token: str):
         """
         Инициализация объекта BotRunner указанным токеном.
 

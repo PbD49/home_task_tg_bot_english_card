@@ -1,7 +1,9 @@
+from typing import Optional
+
 from googletrans import Translator
 
 
-def translate_text_rus_to_eng(text):
+def translate_text_rus_to_eng(text: str) -> Optional[str]:
     """
     Переводит текст с русского на английский.
 
@@ -12,8 +14,7 @@ def translate_text_rus_to_eng(text):
     translated_text = translator.translate(text, src='ru', dest='en')
     return translated_text.text
 
-
-def translate_text_eng_to_rus(text):
+def translate_text_eng_to_rus(text: str) -> Optional[str]:
     """
     Переводит текст с английского на русский.
 
